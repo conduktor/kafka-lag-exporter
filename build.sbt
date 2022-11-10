@@ -122,8 +122,8 @@ lazy val kafkaLagExporter =
         val repo = dockerAlias.value.withTag(None).toString
         s"./scripts/update_chart.sh ${version.value} $repo" !
       },
-      skip in publish := true,
-      parallelExecution in Test := false,
+      publish / skip := true,
+      Test / parallelExecution := false,
       releaseProcess := Seq[ReleaseStep](
         lintHelmChart, // Lint the Helm Chart for errors
         checkSnapshotDependencies,
@@ -165,7 +165,8 @@ lazy val commonSettings = Seq(
   scalacOptions ++= Seq(
     "-encoding",
     "UTF-8",
-    "-release", "8",
+    "-release",
+    "8",
     "-Xlog-reflective-calls",
     "-Xlint",
     "-Ywarn-unused",
@@ -174,8 +175,8 @@ lazy val commonSettings = Seq(
     "-language:_",
     "-unchecked"
   ),
-  scalacOptions in (Compile, console) := (scalacOptions in (Global)).value,
-  scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value
+  Compile / console / scalacOptions := (Global / scalacOptions).value,
+  Test / console / scalacOptions := (Compile / console / scalacOptions).value
 )
 
 lazy val updateHelmChart = taskKey[Unit]("Update Helm Chart")
@@ -199,7 +200,7 @@ lazy val updateHelmChartRelease = ReleaseStep(action = st => {
       )
     )
   val extracted = Project.extract(st)
-  val repo = extracted.get(dockerAlias in thisProjectRef).withTag(None)
+  val repo = extracted.get(thisProjectRef / dockerAlias).withTag(None)
   exec(
     s"./scripts/update_chart.sh $releaseVersion $repo",
     "Error while updating Helm Chart"
@@ -216,7 +217,7 @@ lazy val updateHelmChartNextVersion = ReleaseStep(action = st => {
       )
     )
   val extracted = Project.extract(st)
-  val repo = extracted.get(dockerAlias in thisProjectRef).withTag(None)
+  val repo = extracted.get(thisProjectRef / dockerAlias).withTag(None)
   exec(
     s"./scripts/update_chart.sh $nextVersion $repo",
     "Error while updating Helm Chart"
@@ -263,7 +264,7 @@ lazy val publishDockerImage = ReleaseStep(
   action = { st: State =>
     val extracted = Project.extract(st)
     val ref = extracted.get(thisProjectRef)
-    extracted.runAggregated(publish in Docker in ref, st)
+    extracted.runAggregated(ref / Docker / publish, st)
   }
 )
 
@@ -271,6 +272,6 @@ lazy val packageJavaApp = ReleaseStep(
   action = { st: State =>
     val extracted = Project.extract(st)
     val ref = extracted.get(thisProjectRef)
-    extracted.runAggregated(packageBin in Universal in ref, st)
+    extracted.runAggregated(ref / Universal / packageBin, st)
   }
 )
