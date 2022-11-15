@@ -73,4 +73,12 @@ object Dependencies {
 
   val ConduktorAdminApi =
     "io.conduktor" %% "api-cluster-tapir" % "1.76.0"
+
+  val JwtLibs = Seq(
+    "com.github.jwt-scala" %% "jwt-circe" % "9.1.2",
+    "com.auth0" % "java-jwt" % "4.2.1",
+    "io.circe" %% "circe-core" % "0.14.3"
+  )
+
+
 }

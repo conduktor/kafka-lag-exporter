@@ -5,14 +5,18 @@
 
 package com.lightbend.kafkalagexporter
 
+import com.lightbend.kafkalagexporter.ConduktorWatcherConfig.MachineToMachine
+
 import java.util
 import eu.timepit.refined.auto._
 import com.lightbend.kafkalagexporter.EndpointSink.ClusterGlobalLabels
 import com.typesafe.config.{Config, ConfigObject}
 import eu.timepit.refined
+import eu.timepit.refined.api.Refined
 import eu.timepit.refined.collection.NonEmpty
 import io.conduktor.api.common.dtos.{AuthToken, OrganizationId}
 import io.conduktor.common.circe.SubConfiguration
+import io.conduktor.primitives.types.Secret
 import sttp.client3.UriContext
 import sttp.model.Uri
 
@@ -23,6 +27,19 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.Try
 
 object AppConfig {
+  implicit class ConfigOps(config: Config) {
+    def asNonEmpty(key: String): Refined[String, NonEmpty] =
+      refined
+        .refineV[NonEmpty]
+        .apply(config.getString(key))
+        .getOrElse(
+          throw new IllegalArgumentException(s"$key must be non empty")
+        )
+
+    def asUrl(key: String): Uri =
+      Uri.unsafeParse(config.getString(key))
+  }
+
   def apply(config: Config): AppConfig = {
     val c = config.getConfig("kafka-lag-exporter")
     val pollInterval = c.getDuration("poll-interval").toScala
@@ -112,21 +129,17 @@ object AppConfig {
     val strimziWatcher = c.getString("watchers.strimzi").toBoolean
 
     val conduktorWatcherConfig = if (c.hasPath("watchers.conduktor")) {
-      val conduktor = c.getConfig("watchers.conduktor")
+      val conduktor: Config = c.getConfig("watchers.conduktor")
       val subConf =
         if (conduktor.getBoolean("enabled"))
           SubConfiguration.Enabled[ConduktorWatcherConfig] _
         else SubConfiguration.Disabled[ConduktorWatcherConfig] _
       subConf(
         ConduktorWatcherConfig(
-          adminApiUrl = Uri.unsafeParse(conduktor.getString("admin-api-url")),
-          token = AuthToken(
-            refined
-              .refineV[NonEmpty]
-              .apply(conduktor.getString("token"))
-              .getOrElse(
-                throw new IllegalArgumentException("token must be non empty")
-              )
+          adminApiUrl = conduktor.asUrl("admin-api-url"),
+          machineToMachine = MachineToMachine(
+            secret = Secret(conduktor.asNonEmpty("m2m_auth.shared_secret")),
+            issuer = conduktor.asUrl("m2m_auth.issuer")
           )
         )
       )
@@ -227,9 +240,13 @@ final case class KafkaCluster(
 
 final case class ConduktorWatcherConfig(
     adminApiUrl: Uri,
-    token: AuthToken,
+    machineToMachine: MachineToMachine,
     organizationId: OrganizationId = OrganizationId(1)
 )
+
+object ConduktorWatcherConfig {
+  final case class MachineToMachine(secret: Secret, issuer: Uri)
+}
 
 final case class AppConfig(
     pollInterval: FiniteDuration,

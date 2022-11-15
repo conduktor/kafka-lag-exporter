@@ -69,8 +69,8 @@ lazy val kafkaLagExporter =
         TestcontainersRedis,
         Sttp,
         TapirSttpClient,
-        ConduktorAdminApi
-      ),
+        ConduktorAdminApi,
+      ) ++ JwtLibs,
       dockerApiVersion := Some(DockerApiVersion(1, 41)),
       dockerRepository := Option(System.getenv("DOCKER_REPOSITORY"))
         .orElse(None),

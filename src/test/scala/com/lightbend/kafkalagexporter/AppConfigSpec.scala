@@ -4,10 +4,12 @@
  */
 
 package com.lightbend.kafkalagexporter
+import com.lightbend.kafkalagexporter.ConduktorWatcherConfig.MachineToMachine
 import eu.timepit.refined.auto._
 import com.typesafe.config.{Config, ConfigFactory}
 import io.conduktor.api.common.dtos.{AuthToken, OrganizationId}
 import io.conduktor.common.circe.SubConfiguration
+import io.conduktor.primitives.types.Secret
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
 import sttp.client3.UriContext
@@ -125,7 +127,10 @@ class AppConfigSpec extends AnyFreeSpec with Matchers {
           |     conduktor {
           |       enabled = false
           |       admin-api-url = "http://admin"
-          |       token = secret-token
+          |       m2m_auth {
+          |         issuer = "http://authenticator:8083"
+          |         shared_secret = secret-sentence
+          |       }
           |     }
           |   }
           | }
@@ -135,7 +140,7 @@ class AppConfigSpec extends AnyFreeSpec with Matchers {
         SubConfiguration.Disabled(
           ConduktorWatcherConfig(
             adminApiUrl = uri"http://admin",
-            token = AuthToken("secret-token"),
+            machineToMachine = MachineToMachine(secret = Secret("secret-sentence"), issuer = uri"http://authenticator:8083"),
             organizationId = OrganizationId(1)
           )
         )
@@ -145,22 +150,25 @@ class AppConfigSpec extends AnyFreeSpec with Matchers {
     "should handle the enabled conduktor watcher subconfig" in {
       val appConfig = AppConfig(loadConfig("""
           |{
-          | kafka-lag-exporter {
-          |   watchers {
-          |     conduktor {
-          |       enabled = true
-          |       admin-api-url = "http://admin-2"
-          |       token = secret-token-2
-          |     }
-          |   }
-          | }
+          |  kafka-lag-exporter {
+          |    watchers {
+          |      conduktor {
+          |        enabled = true
+          |        admin-api-url = "http://admin-2"
+          |        m2m_auth {
+          |          issuer = "http://authenticator:8082"
+          |          shared_secret = secret-words
+          |        }
+          |      }
+          |    }
+          |  }
           |}
           |""".stripMargin))
       appConfig.conduktorWatcher should equal(
         SubConfiguration.Enabled(
           ConduktorWatcherConfig(
             adminApiUrl = uri"http://admin-2",
-            token = AuthToken("secret-token-2"),
+            machineToMachine = MachineToMachine(secret = Secret("secret-words"), issuer = uri"http://authenticator:8082"),
             organizationId = OrganizationId(1)
           )
         )
