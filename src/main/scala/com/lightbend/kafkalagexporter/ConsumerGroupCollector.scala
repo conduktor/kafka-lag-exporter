@@ -381,7 +381,8 @@ object ConsumerGroupCollector {
             }
 
             val offsetLagCalc = mostRecentPoint.offset - point.offset
-            val offsetLag = if (offsetLagCalc < 0) 0d else offsetLagCalc.toDouble
+            val offsetLag =
+              if (offsetLagCalc < 0) 0d else offsetLagCalc.toDouble
 
             log.debug(
               "  Found time_lag=\"{}\" and offset_lag=\"{}\" for offset=\"{}\" in the lookup table ({}, {})",
