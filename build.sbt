@@ -11,6 +11,19 @@ import sbt.IO
 import java.time.format.DateTimeFormatter
 import java.time.Instant
 import scala.sys.process._
+import scala.util.Try
+
+val GITHUB_OWNER = "conduktor"
+ThisBuild / resolvers += s"GitHub $GITHUB_OWNER Apache Maven Packages" at s"https://maven.pkg.github.com/$GITHUB_OWNER/_/"
+ThisBuild / credentials += Credentials(
+  "GitHub Package Registry",
+  "maven.pkg.github.com",
+  GITHUB_OWNER,
+  Try(s"git config github.token".!!).fold(
+    _ => System.getenv("GH_PACKAGES_TOKEN"),
+    x => { println(s"token $x"); x.trim }
+  )
+)
 
 lazy val kafkaLagExporter =
   Project(id = "kafka-lag-exporter", base = file("."))
@@ -53,7 +66,10 @@ lazy val kafkaLagExporter =
         AlpakkaKafkaTestKit,
         TestcontainersKafka,
         TestcontainersInfluxDb,
-        TestcontainersRedis
+        TestcontainersRedis,
+        Sttp,
+        TapirSttpClient,
+        ConduktorAdminApi
       ),
       dockerApiVersion := Some(DockerApiVersion(1, 41)),
       dockerRepository := Option(System.getenv("DOCKER_REPOSITORY"))

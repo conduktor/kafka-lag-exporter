@@ -4,9 +4,13 @@
  */
 
 package com.lightbend.kafkalagexporter
+import eu.timepit.refined.auto._
 import com.typesafe.config.{Config, ConfigFactory}
+import io.conduktor.api.common.dtos.{AuthToken, OrganizationId}
+import io.conduktor.common.circe.SubConfiguration
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
+import sttp.client3.UriContext
 
 class AppConfigSpec extends AnyFreeSpec with Matchers {
 
@@ -94,6 +98,75 @@ class AppConfigSpec extends AnyFreeSpec with Matchers {
       val appConfig = AppConfig(loadConfig(""))
       appConfig.clustersGlobalLabels() should equal(Map.empty)
     }
+
+    "should handle strimzi config" in {
+      val appConfig = AppConfig(loadConfig("""
+          |{
+          | kafka-lag-exporter {
+          |   watchers {
+          |     strimzi = true
+          |   }
+          | }
+          |}
+          |""".stripMargin))
+      appConfig.strimziWatcher should equal(true)
+    }
+
+    "should handle the empty conduktor watcher subconfig" in {
+      val appConfig = AppConfig(loadConfig(""))
+      appConfig.conduktorWatcher should equal(SubConfiguration.Undefined)
+    }
+
+    "should handle the disabled conduktor watcher subconfig" in {
+      val appConfig = AppConfig(loadConfig("""
+          |{
+          | kafka-lag-exporter {
+          |   watchers {
+          |     conduktor {
+          |       enabled = false
+          |       admin-api-url = "http://admin"
+          |       token = secret-token
+          |     }
+          |   }
+          | }
+          |}
+          |""".stripMargin))
+      appConfig.conduktorWatcher should equal(
+        SubConfiguration.Disabled(
+          ConduktorWatcherConfig(
+            adminApiUrl = uri"http://admin",
+            token = AuthToken("secret-token"),
+            organizationId = OrganizationId(1)
+          )
+        )
+      )
+    }
+
+    "should handle the enabled conduktor watcher subconfig" in {
+      val appConfig = AppConfig(loadConfig("""
+          |{
+          | kafka-lag-exporter {
+          |   watchers {
+          |     conduktor {
+          |       enabled = true
+          |       admin-api-url = "http://admin-2"
+          |       token = secret-token-2
+          |     }
+          |   }
+          | }
+          |}
+          |""".stripMargin))
+      appConfig.conduktorWatcher should equal(
+        SubConfiguration.Enabled(
+          ConduktorWatcherConfig(
+            adminApiUrl = uri"http://admin-2",
+            token = AuthToken("secret-token-2"),
+            organizationId = OrganizationId(1)
+          )
+        )
+      )
+    }
+
   }
 
   private def loadConfig(configStr: String): Config = {

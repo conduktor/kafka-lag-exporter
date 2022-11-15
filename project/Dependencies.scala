@@ -64,4 +64,13 @@ object Dependencies {
     "org.testcontainers" % "influxdb" % Version.Testcontainers % Test
   val TestcontainersRedis =
     "org.testcontainers" % "spock" % Version.Testcontainers % Test
+
+  val Sttp =
+    "com.softwaremill.sttp.client3" %% "akka-http-backend" % "3.8.3"
+
+  val TapirSttpClient =
+    "com.softwaremill.sttp.tapir" %% "tapir-sttp-client" % "0.19.4"
+
+  val ConduktorAdminApi =
+    "io.conduktor" %% "api-cluster-tapir" % "1.76.0"
 }

@@ -6,8 +6,15 @@
 package com.lightbend.kafkalagexporter
 
 import java.util
+import eu.timepit.refined.auto._
 import com.lightbend.kafkalagexporter.EndpointSink.ClusterGlobalLabels
 import com.typesafe.config.{Config, ConfigObject}
+import eu.timepit.refined
+import eu.timepit.refined.collection.NonEmpty
+import io.conduktor.api.common.dtos.{AuthToken, OrganizationId}
+import io.conduktor.common.circe.SubConfiguration
+import sttp.client3.UriContext
+import sttp.model.Uri
 
 import scala.annotation.tailrec
 import scala.jdk.CollectionConverters.{ListHasAsScala, SetHasAsScala}
@@ -104,6 +111,29 @@ object AppConfig {
       }
     val strimziWatcher = c.getString("watchers.strimzi").toBoolean
 
+    val conduktorWatcherConfig = if (c.hasPath("watchers.conduktor")) {
+      val conduktor = c.getConfig("watchers.conduktor")
+      val subConf =
+        if (conduktor.getBoolean("enabled"))
+          SubConfiguration.Enabled[ConduktorWatcherConfig] _
+        else SubConfiguration.Disabled[ConduktorWatcherConfig] _
+      subConf(
+        ConduktorWatcherConfig(
+          adminApiUrl = Uri.unsafeParse(conduktor.getString("admin-api-url")),
+          token = AuthToken(
+            refined
+              .refineV[NonEmpty]
+              .apply(conduktor.getString("token"))
+              .getOrElse(
+                throw new IllegalArgumentException("token must be non empty")
+              )
+          )
+        )
+      )
+    } else {
+      SubConfiguration.Undefined
+    }
+
     AppConfig(
       pollInterval,
       lookupTable,
@@ -112,7 +142,8 @@ object AppConfig {
       kafkaClientTimeout,
       kafkaRetries,
       clusters,
-      strimziWatcher
+      strimziWatcher,
+      conduktorWatcherConfig
     )
   }
 
@@ -194,6 +225,12 @@ final case class KafkaCluster(
   }
 }
 
+final case class ConduktorWatcherConfig(
+    adminApiUrl: Uri,
+    token: AuthToken,
+    organizationId: OrganizationId = OrganizationId(1)
+)
+
 final case class AppConfig(
     pollInterval: FiniteDuration,
     lookupTable: LookupTableConfig,
@@ -202,7 +239,8 @@ final case class AppConfig(
     clientTimeout: FiniteDuration,
     retries: Int,
     clusters: List[KafkaCluster],
-    strimziWatcher: Boolean
+    strimziWatcher: Boolean,
+    conduktorWatcher: SubConfiguration[ConduktorWatcherConfig]
 ) {
   override def toString(): String = {
     val clusterString =

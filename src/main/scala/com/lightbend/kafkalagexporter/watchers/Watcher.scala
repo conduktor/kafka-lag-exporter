@@ -7,8 +7,15 @@ package com.lightbend.kafkalagexporter.watchers
 
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.ActorContext
-import com.lightbend.kafkalagexporter.{AppConfig, KafkaCluster}
-import com.lightbend.kafkalagexporter.KafkaClusterManager
+import com.lightbend.kafkalagexporter.{
+  AppConfig,
+  ConduktorWatcherConfig,
+  KafkaCluster,
+  KafkaClusterManager
+}
+import io.conduktor.common.circe.SubConfiguration
+
+import scala.concurrent.ExecutionContext
 
 object Watcher {
 
@@ -29,10 +36,24 @@ object Watcher {
   def createClusterWatchers(
       context: ActorContext[KafkaClusterManager.Message],
       appConfig: AppConfig
-  ): Seq[ActorRef[Watcher.Message]] = {
+  )(nonBlockingIOEc: ExecutionContext): Seq[ActorRef[Watcher.Message]] = {
     // Add additional watchers here..
-    val configMap = Seq(StrimziClusterWatcher.name -> appConfig.strimziWatcher)
+    val configMap = Seq(
+      StrimziClusterWatcher.name -> appConfig.strimziWatcher,
+      ConduktorWatcher.name -> appConfig.conduktorWatcher
+    )
     configMap.flatMap {
+      case (
+            ConduktorWatcher.name,
+            SubConfiguration.Enabled(config: ConduktorWatcherConfig)
+          ) =>
+        context.log.info(s"Adding watcher: ${ConduktorWatcher.name}")
+        Seq(
+          context.spawn(
+            ConduktorWatcher.init(context.self, config)(nonBlockingIOEc),
+            s"conduktor-cluster-watcher-${ConduktorWatcher.name}"
+          )
+        )
       case (StrimziClusterWatcher.name, true) =>
         context.log.info(s"Adding watcher: ${StrimziClusterWatcher.name}")
         Seq(
