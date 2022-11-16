@@ -7,7 +7,11 @@ package com.lightbend.kafkalagexporter.watchers
 
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
-import com.lightbend.kafkalagexporter.{ConduktorWatcherConfig, KafkaCluster, KafkaClusterManager}
+import com.lightbend.kafkalagexporter.{
+  ConduktorWatcherConfig,
+  KafkaCluster,
+  KafkaClusterManager
+}
 import eu.timepit.refined
 import eu.timepit.refined.collection.NonEmpty
 import io.circe.literal.JsonStringContext
@@ -29,21 +33,29 @@ class ConduktorClient(config: ConduktorWatcherConfig)(implicit
     nonBlockingIOEc: ExecutionContext
 ) {
 
-  final case class ClaimsPayload(sourceApplication: String, userMail: Option[String])
+  final case class ClaimsPayload(
+      sourceApplication: String,
+      userMail: Option[String]
+  )
 
   val token: AuthToken = {
     import config.machineToMachine._
     ClaimsPayload(sourceApplication = "monitoring", userMail = None)
-    refined.refineV[NonEmpty](JwtCirce.encode(
-      JwtClaim(content = json"""{ "sourceApplication": "monitoring" }""".spaces2, issuer = Some(issuer.toString())),
-      Secret.unwrapValue(secret),
-      JwtAlgorithm.HS256
-    )).fold(
-      error => throw new IllegalArgumentException(error),
-      AuthToken.apply)
+    refined
+      .refineV[NonEmpty](
+        JwtCirce.encode(
+          JwtClaim(
+            content = json"""{ "sourceApplication": "monitoring" }""".spaces2,
+            issuer = Some(issuer.toString())
+          ),
+          Secret.unwrapValue(secret),
+          JwtAlgorithm.HS256
+        )
+      )
+      .fold(error => throw new IllegalArgumentException(error), AuthToken.apply)
   }
 
-    config.machineToMachine
+  config.machineToMachine
   val http: SttpBackend[Future, Any] = AkkaHttpBackend()
 
   def listClusters: Future[List[SharedClusterResponseV2]] =

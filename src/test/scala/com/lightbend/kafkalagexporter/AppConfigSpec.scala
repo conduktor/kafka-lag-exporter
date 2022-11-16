@@ -140,7 +140,10 @@ class AppConfigSpec extends AnyFreeSpec with Matchers {
         SubConfiguration.Disabled(
           ConduktorWatcherConfig(
             adminApiUrl = uri"http://admin",
-            machineToMachine = MachineToMachine(secret = Secret("secret-sentence"), issuer = uri"http://authenticator:8083"),
+            machineToMachine = MachineToMachine(
+              secret = Secret("secret-sentence"),
+              issuer = uri"http://authenticator:8083"
+            ),
             organizationId = OrganizationId(1)
           )
         )
@@ -168,7 +171,10 @@ class AppConfigSpec extends AnyFreeSpec with Matchers {
         SubConfiguration.Enabled(
           ConduktorWatcherConfig(
             adminApiUrl = uri"http://admin-2",
-            machineToMachine = MachineToMachine(secret = Secret("secret-words"), issuer = uri"http://authenticator:8082"),
+            machineToMachine = MachineToMachine(
+              secret = Secret("secret-words"),
+              issuer = uri"http://authenticator:8082"
+            ),
             organizationId = OrganizationId(1)
           )
         )

@@ -69,10 +69,10 @@ object Dependencies {
     "com.softwaremill.sttp.client3" %% "akka-http-backend" % "3.8.3"
 
   val TapirSttpClient =
-    "com.softwaremill.sttp.tapir" %% "tapir-sttp-client" % "0.19.4"
+    "com.softwaremill.sttp.tapir" %% "tapir-sttp-client" % "1.2.0"
 
   val ConduktorAdminApi =
-    "io.conduktor" %% "api-cluster-tapir" % "1.76.0"
+    "io.conduktor" %% "api-cluster-tapir" % "1.79.0"
 
   val JwtLibs = Seq(
     "com.github.jwt-scala" %% "jwt-circe" % "9.1.2",
