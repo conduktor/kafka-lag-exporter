@@ -7,7 +7,6 @@ on:
 jobs:
   release:
     # runs on main repo only
-    if: github.repository == 'conduktor/kafka-lag-exporter'
     name: Release
     runs-on: ubuntu-22.04
     env:
