@@ -10,6 +10,8 @@ jobs:
     if: github.repository == 'conduktor/kafka-lag-exporter'
     name: Release
     runs-on: ubuntu-22.04
+    env:
+      GH_READ_PACKAGES: ${{ secrets.GH_READ_PACKAGES }}
     strategy:
       fail-fast: false
     steps:
