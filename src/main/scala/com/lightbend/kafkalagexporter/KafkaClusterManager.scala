@@ -11,6 +11,7 @@ import akka.util.Timeout
 import com.lightbend.kafkalagexporter.KafkaClient.KafkaClientContract
 import com.lightbend.kafkalagexporter.watchers.Watcher
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
@@ -30,37 +31,40 @@ object KafkaClusterManager {
       appConfig: AppConfig,
       metricsSinks: List[NamedCreator],
       clientCreator: KafkaCluster => KafkaClientContract
-  ): Behavior[Message] = Behaviors.setup { context =>
-    context.log.info(
-      "Starting Kafka Lag Exporter with configuration: \n{}",
-      appConfig
-    )
-
-    if (appConfig.clusters.isEmpty && !appConfig.strimziWatcher)
+  )(nonBlockingIOEc: ExecutionContext): Behavior[Message] = Behaviors.setup {
+    context =>
       context.log.info(
-        "No watchers are defined and no clusters are statically configured.  Nothing to do."
+        "Starting Kafka Lag Exporter with configuration: \n{}",
+        appConfig
       )
 
-    val watchers: Seq[ActorRef[Watcher.Message]] =
-      Watcher.createClusterWatchers(context, appConfig)
-    val reporters: List[ActorRef[MetricsSink.Message]] = metricsSinks.map {
-      metricsSink: NamedCreator =>
-        context.spawn(
-          MetricsReporter.init(metricsSink.creator()),
-          metricsSink.name
+      if (appConfig.clusters.isEmpty && !appConfig.strimziWatcher)
+        context.log.info(
+          "No watchers are defined and no clusters are statically configured.  Nothing to do."
         )
-    }
-    appConfig.clusters.foreach(cluster => context.self ! ClusterAdded(cluster))
 
-    reporters.map { context.watch }
+      val watchers: Seq[ActorRef[Watcher.Message]] =
+        Watcher.createClusterWatchers(context, appConfig)(nonBlockingIOEc)
+      val reporters: List[ActorRef[MetricsSink.Message]] = metricsSinks.map {
+        metricsSink: NamedCreator =>
+          context.spawn(
+            MetricsReporter.init(metricsSink.creator()),
+            metricsSink.name
+          )
+      }
+      appConfig.clusters.foreach(cluster =>
+        context.self ! ClusterAdded(cluster)
+      )
 
-    manager(
-      appConfig,
-      clientCreator,
-      reporters,
-      collectors = Map.empty,
-      watchers
-    )
+      reporters.map { context.watch }
+
+      manager(
+        appConfig,
+        clientCreator,
+        reporters,
+        collectors = Map.empty,
+        watchers
+      )
   }
 
   def manager(

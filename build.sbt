@@ -10,7 +10,24 @@ import sbt.IO
 
 import java.time.format.DateTimeFormatter
 import java.time.Instant
+import scala.sys.env
 import scala.sys.process._
+import scala.util.Try
+
+val GITHUB_OWNER = "conduktor"
+ThisBuild / resolvers += s"GitHub $GITHUB_OWNER Apache Maven Packages" at s"https://maven.pkg.github.com/$GITHUB_OWNER/_/"
+ThisBuild / credentials += Credentials(
+  "GitHub Package Registry",
+  "maven.pkg.github.com",
+  GITHUB_OWNER,
+  env.get("GH_READ_PACKAGES")
+    .orElse(Try(s"git config github.token".!!).map(_.trim).toOption)
+    .getOrElse(
+      throw new RuntimeException(
+        "Missing env variable: `GH_READ_PACKAGES` or git config option: `github.token`"
+      )
+    ),
+)
 
 lazy val kafkaLagExporter =
   Project(id = "kafka-lag-exporter", base = file("."))
@@ -53,8 +70,11 @@ lazy val kafkaLagExporter =
         AlpakkaKafkaTestKit,
         TestcontainersKafka,
         TestcontainersInfluxDb,
-        TestcontainersRedis
-      ),
+        TestcontainersRedis,
+        Sttp,
+        TapirSttpClient,
+        ConduktorAdminApi,
+      ) ++ JwtLibs,
       dockerApiVersion := Some(DockerApiVersion(1, 41)),
       dockerRepository := Option(System.getenv("DOCKER_REPOSITORY"))
         .orElse(None),

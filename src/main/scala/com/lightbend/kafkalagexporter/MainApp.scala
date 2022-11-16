@@ -26,8 +26,8 @@ object MainApp extends App {
   def start(
       config: Config = ConfigFactory.load()
   ): ActorSystem[KafkaClusterManager.Message] = {
-    // Cached thread pool for various Kafka calls for non-blocking I/O
-    val kafkaClientEc =
+    // Cached thread pool for calls for non-blocking I/O
+    val nonBlockingIOEc =
       ExecutionContext.fromExecutor(Executors.newCachedThreadPool())
 
     val appConfig = AppConfig(config)
@@ -39,7 +39,7 @@ object MainApp extends App {
         appConfig.clientTimeout,
         appConfig.retries
       )(
-        kafkaClientEc
+        nonBlockingIOEc
       )
 
     var endpointCreators: List[KafkaClusterManager.NamedCreator] = List()
@@ -86,7 +86,9 @@ object MainApp extends App {
     }
 
     ActorSystem(
-      KafkaClusterManager.init(appConfig, endpointCreators, clientCreator),
+      KafkaClusterManager.init(appConfig, endpointCreators, clientCreator)(
+        nonBlockingIOEc
+      ),
       "kafka-lag-exporter"
     )
   }
