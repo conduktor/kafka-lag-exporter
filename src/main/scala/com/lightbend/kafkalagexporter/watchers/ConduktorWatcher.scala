@@ -55,7 +55,6 @@ class ConduktorClient(config: ConduktorWatcherConfig)(implicit
       .fold(error => throw new IllegalArgumentException(error), AuthToken.apply)
   }
 
-  config.machineToMachine
   val http: SttpBackend[Future, Any] = AkkaHttpBackend()
 
   def listClusters: Future[List[SharedClusterResponseV2]] =
@@ -81,7 +80,7 @@ class ConduktorClient(config: ConduktorWatcherConfig)(implicit
     Future.fromTry(
       parseToMap(cluster.properties).map(properties =>
         KafkaCluster(
-          name = cluster.name.value.value,
+          name = cluster.id.value.toString,
           bootstrapBrokers = cluster.bootstrapServers.value.value,
           groupWhitelist = Nil,
           groupBlacklist = Nil,
