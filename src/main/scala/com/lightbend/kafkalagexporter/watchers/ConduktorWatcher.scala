@@ -82,10 +82,10 @@ class ConduktorClient(config: ConduktorWatcherConfig)(implicit
         KafkaCluster(
           name = cluster.id.value.toString,
           bootstrapBrokers = cluster.bootstrapServers.value.value,
-          groupWhitelist = Nil,
-          groupBlacklist = Nil,
-          topicWhitelist = Nil,
-          topicBlacklist = Nil,
+          groupWhitelist = KafkaCluster.GroupWhitelistDefault,
+          groupBlacklist = KafkaCluster.GroupBlacklistDefault,
+          topicWhitelist = KafkaCluster.TopicWhitelistDefault,
+          topicBlacklist = KafkaCluster.TopicBlacklistDefault,
           consumerProperties = properties,
           adminClientProperties = properties,
           labels = Map.empty
