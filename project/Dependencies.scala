@@ -80,5 +80,7 @@ object Dependencies {
     "io.circe" %% "circe-core" % "0.14.3"
   )
 
+  val KafkaSsl = "io.conduktor" %% "kafka-ssl" % "0.999-SNAPSHOT"
+
 
 }

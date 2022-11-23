@@ -222,8 +222,8 @@ final case class KafkaCluster(
     groupBlacklist: List[String] = KafkaCluster.GroupBlacklistDefault,
     topicWhitelist: List[String] = KafkaCluster.TopicWhitelistDefault,
     topicBlacklist: List[String] = KafkaCluster.TopicBlacklistDefault,
-    consumerProperties: Map[String, String] = Map.empty,
-    adminClientProperties: Map[String, String] = Map.empty,
+    consumerProperties: Map[String, AnyRef] = Map.empty,
+    adminClientProperties: Map[String, AnyRef] = Map.empty,
     labels: Map[String, String] = Map.empty
 ) {
   override def toString(): String = {

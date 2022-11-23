@@ -7,17 +7,15 @@ package com.lightbend.kafkalagexporter.watchers
 
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
-import com.lightbend.kafkalagexporter.{
-  ConduktorWatcherConfig,
-  KafkaCluster,
-  KafkaClusterManager
-}
+import com.lightbend.kafkalagexporter.{ConduktorWatcherConfig, KafkaCluster, KafkaClusterManager}
 import eu.timepit.refined
 import eu.timepit.refined.collection.NonEmpty
 import io.circe.literal.JsonStringContext
 import io.conduktor.api.common.dtos.AuthToken
+import io.conduktor.api.server.clusters.Certificate.EncodedCertificate
 import io.conduktor.api.server.clusters.values.SharedClusterProperties
 import io.conduktor.api.server.clusters.{SharedClusterResponseV2, endpoints}
+import io.conduktor.certificate.{KafkaConnectionProperties, PemCertificate}
 import io.conduktor.primitives.types.Secret
 import pdi.jwt.{JwtAlgorithm, JwtCirce, JwtClaim}
 import sttp.client3.SttpBackend
@@ -57,7 +55,9 @@ class ConduktorClient(config: ConduktorWatcherConfig)(implicit
 
   val http: SttpBackend[Future, Any] = AkkaHttpBackend()
 
-  def listClusters: Future[List[SharedClusterResponseV2]] =
+  def listClusters(
+      certificates: List[EncodedCertificate]
+  ): Future[List[KafkaCluster]] =
     SttpClientInterpreter()
       .toSecureClientThrowErrors(
         endpoints.v2.getClustersM2m,
@@ -66,32 +66,66 @@ class ConduktorClient(config: ConduktorWatcherConfig)(implicit
       )
       .apply(token)
       .apply(config.organizationId)
+      .flatMap { clusters =>
+        Future.traverse(clusters)(mapToKafkaCluster(certificates))
+      }
 
   def start(clusterWatcher: Watcher.Events): Watcher.Client = {
-    listClusters
-      .flatMap { clusters => Future.traverse(clusters)(mapToKafkaCluster) }
-      .map(clusters => clusters.foreach(clusterWatcher.added))
+    (for {
+      certificates <- listCertificates
+      clusters <- listClusters(certificates)
+    } yield {
+      clusters.foreach(clusterWatcher.added)
+    })
       .recover { t => clusterWatcher.error(t) }
     val client: Watcher.Client = () => ()
     client
   }
 
-  private def mapToKafkaCluster(cluster: SharedClusterResponseV2) =
+  private def mapToKafkaCluster(
+      certificates: List[EncodedCertificate]
+  )(cluster: SharedClusterResponseV2) =
     Future.fromTry(
-      parseToMap(cluster.properties).map(properties =>
-        KafkaCluster(
-          name = cluster.id.value.toString,
-          bootstrapBrokers = cluster.bootstrapServers.value.value,
-          groupWhitelist = KafkaCluster.GroupWhitelistDefault,
-          groupBlacklist = KafkaCluster.GroupBlacklistDefault,
-          topicWhitelist = KafkaCluster.TopicWhitelistDefault,
-          topicBlacklist = KafkaCluster.TopicBlacklistDefault,
-          consumerProperties = properties,
-          adminClientProperties = properties,
-          labels = Map.empty
+      parseToMap(cluster.properties)
+        .map(_ ++ buildPropertiesForCertificates(certificates, cluster))
+        .map(properties =>
+          KafkaCluster(
+            name = cluster.id.value.toString,
+            bootstrapBrokers = cluster.bootstrapServers.value.value,
+            groupWhitelist = KafkaCluster.GroupWhitelistDefault,
+            groupBlacklist = KafkaCluster.GroupBlacklistDefault,
+            topicWhitelist = KafkaCluster.TopicWhitelistDefault,
+            topicBlacklist = KafkaCluster.TopicBlacklistDefault,
+            consumerProperties = properties,
+            adminClientProperties = properties,
+            labels = Map.empty
+          )
         )
-      )
     )
+
+  def listCertificates: Future[List[EncodedCertificate]] =
+    SttpClientInterpreter()
+      .toSecureClientThrowErrors(
+        endpoints.certificate.listEncodedCertificates,
+        Some(config.adminApiUrl),
+        http
+      )
+      .apply(token)
+      .apply(config.organizationId)
+
+  private def buildPropertiesForCertificates(certificates: List[EncodedCertificate], cluster: SharedClusterResponseV2) = {
+    val serverCertCheck = if (cluster.ignoreUntrustedCertificate) {
+      KafkaConnectionProperties.ServerCertificateCheck.IgnoreUntrustedCertificate
+    } else {
+      val pemCertificates = certificates.map(encodedCertificate => PemCertificate(encodedCertificate.encoded.encoded))
+      KafkaConnectionProperties.ServerCertificateCheck.CheckChain(pemCertificates)
+    }
+    val clientCertCheck = cluster.accessCert.zip(cluster.accessKey)
+      .map { case (cert, key) => KafkaConnectionProperties.ClientCertificateAuth.CertAuth(PemCertificate(cert.value.value), PemCertificate(key.value.value)) }
+      .getOrElse(KafkaConnectionProperties.ClientCertificateAuth.NoAuth)
+
+    KafkaConnectionProperties.forCertificates(serverCertCheck, clientCertCheck)
+  }
 
   def parseToMap(
       properties: Option[SharedClusterProperties]

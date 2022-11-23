@@ -74,6 +74,7 @@ lazy val kafkaLagExporter =
         Sttp,
         TapirSttpClient,
         ConduktorAdminApi,
+        KafkaSsl
       ) ++ JwtLibs,
       dockerApiVersion := Some(DockerApiVersion(1, 41)),
       dockerRepository := Option(System.getenv("DOCKER_REPOSITORY"))

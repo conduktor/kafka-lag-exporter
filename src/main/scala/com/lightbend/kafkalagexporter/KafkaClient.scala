@@ -103,7 +103,7 @@ object KafkaClient {
     val props = new Properties()
     // AdminClient config: https://kafka.apache.org/documentation/#adminclientconfigs
     cluster.adminClientProperties foreach { case (k, v) =>
-      props.setProperty(k, v)
+      props.put(k, v)
     }
     props.put(
       AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG,
@@ -133,7 +133,7 @@ object KafkaClient {
     val deserializer = (new ByteArrayDeserializer).getClass.getName
     // KafkaConsumer config: https://kafka.apache.org/documentation/#consumerconfigs
     cluster.consumerProperties foreach { case (k, v) =>
-      props.setProperty(k, v)
+      props.put(k, v)
     }
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, cluster.bootstrapBrokers)
     props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId)
